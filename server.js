@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.YOUTUBE_API_KEY || '';
 
 // ---------- FRONTEND: HTML DIRECTLY ON "/" ----------
+
 app.get('/', (req, res) => {
   res.send('<!DOCTYPE html>' +
     '<html lang="en">' +
@@ -74,12 +75,12 @@ app.get('/', (req, res) => {
     '      margin-right: 6px;' +
     '    }' +
     '    button {' +
-    '      padding: 10px 20px;' +
+    '      padding: 8px 14px;' +
     '      border-radius: 999px;' +
     '      border: none;' +
     '      cursor: pointer;' +
     '      font-weight: 600;' +
-    '      font-size: 14px;' +
+    '      font-size: 13px;' +
     '      background: #000000;' +
     '      color: #ffffff;' +
     '    }' +
@@ -101,7 +102,7 @@ app.get('/', (req, res) => {
     '      font-size: 14px;' +
     '    }' +
     '    li {' +
-    '      margin-bottom: 8px;' +
+    '      margin-bottom: 10px;' +
     '    }' +
     '    .video-title {' +
     '      display: block;' +
@@ -114,6 +115,7 @@ app.get('/', (req, res) => {
     '      color: #0066cc;' +
     '      text-decoration: none;' +
     '      word-break: break-all;' +
+    '      margin-right: 8px;' +
     '    }' +
     '    .video-url:hover {' +
     '      text-decoration: underline;' +
@@ -121,6 +123,12 @@ app.get('/', (req, res) => {
     '    .duration {' +
     '      font-size: 12px;' +
     '      color: #777;' +
+    '      margin-left: 6px;' +
+    '    }' +
+    '    .copy-btn {' +
+    '      margin-left: 4px;' +
+    '      padding: 4px 10px;' +
+    '      font-size: 12px;' +
     '    }' +
     '  </style>' +
     '</head>' +
@@ -129,7 +137,7 @@ app.get('/', (req, res) => {
     '    <h1>YouTube Channel URL Extractor</h1>' +
     '    <p class="description">' +
     '      Paste a YouTube channel link, choose whether you want Shorts, long videos,' +
-    '      or everything, and get a numbered list of video URLs.' +
+    '      or everything, and get a numbered list of video URLs with copy buttons.' +
     '    </p>' +
     '    <form id="channelForm">' +
     '      <label for="channelUrl">YouTube channel link</label>' +
@@ -178,7 +186,7 @@ app.get('/', (req, res) => {
     '        if (videos.length === 0) {' +
     '          statusEl.textContent = "No videos found for this channel and filter."; return;' +
     '        }' +
-    '        statusEl.textContent = "Found " + videos.length + " videos."; ' +
+    '        statusEl.textContent = "Found " + videos.length + " videos.";' +
     '        resultsEl.innerHTML = "";' +
     '        videos.forEach((video) => {' +
     '          const li = document.createElement("li");' +
@@ -191,14 +199,19 @@ app.get('/', (req, res) => {
     '          link.target = "_blank";' +
     '          link.rel = "noopener noreferrer";' +
     '          link.textContent = video.url;' +
+    '          const copyBtn = document.createElement("button");' +
+    '          copyBtn.type = "button";' +
+    '          copyBtn.className = "copy-btn";' +
+    '          copyBtn.textContent = "Copy";' +
+    '          copyBtn.setAttribute("data-url", video.url);' +
     '          const durationSpan = document.createElement("span");' +
     '          durationSpan.className = "duration";' +
     '          const formatted = formatDuration(Number(video.durationSeconds));' +
     '          durationSpan.textContent = formatted ? "Duration: " + formatted : "";' +
     '          li.appendChild(titleSpan);' +
     '          li.appendChild(link);' +
+    '          li.appendChild(copyBtn);' +
     '          if (formatted) {' +
-    '            li.appendChild(document.createElement("br"));' +
     '            li.appendChild(durationSpan);' +
     '          }' +
     '          resultsEl.appendChild(li);' +
@@ -211,32 +224,25 @@ app.get('/', (req, res) => {
     '        submitBtn.disabled = false;' +
     '      }' +
     '    });' +
+    '    document.addEventListener("click", async (event) => {' +
+    '      const target = event.target;' +
+    '      if (target && target.classList.contains("copy-btn")) {' +
+    '        const url = target.getAttribute("data-url");' +
+    '        if (!url) return;' +
+    '        try {' +
+    '          await navigator.clipboard.writeText(url);' +
+    '          const original = target.textContent;' +
+    '          target.textContent = "Copied!";' +
+    '          setTimeout(() => { target.textContent = original; }, 1200);' +
+    '        } catch (err) {' +
+    '          console.error(err);' +
+    '        }' +
+    '      }' +
+    '    });' +
     '  </script>' +
     '</body>' +
     '</html>');
 });
-
-// ---------- BACKEND: YOUTUBE API ----------
-function parseChannelIdentifier(url) {
-  try {
-    const u = new URL(url);
-    const segments = u.pathname.split('/').filter(Boolean);
-
-    if (segments[0] === 'channel' && segments[1]) {
-      return { type: 'channelId', value: segments[1] };
-    }
-    if (segments[0] === 'user' && segments[1]) {
-      return { type: 'username', value: segments[1] };
-    }
-    const handleSegment = segments.find(function (seg) { return seg.startsWith('@'); });
-    if (handleSegment) {
-      return { type: 'handle', value: handleSegment };
-    }
-    throw new Error('Could not parse channel from URL.');
-  } catch (err) {
-    throw new Error('Invalid channel URL.');
-  }
-}
 
 async function getChannelInfo(identifier) {
   const url = 'https://www.googleapis.com/youtube/v3/channels';
